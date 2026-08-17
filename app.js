@@ -1,1033 +1,1452 @@
-alert("APP JS NUEVO CARGADO");
-const zipInput = document.getElementById("zipInput");
-const status = document.getElementById("status");
+const zipInput =
+  document.getElementById("zipInput");
 
-const stats = document.getElementById("stats");
-const batchSection = document.getElementById("batchSection");
-const debug = document.getElementById("debug");
+const status =
+  document.getElementById("status");
 
-const debugContent = document.getElementById("debugContent");
+const stats =
+  document.getElementById("stats");
 
-const followersCount = document.getElementById("followersCount");
-const followingCount = document.getElementById("followingCount");
-const notFollowingCount = document.getElementById("notFollowingCount");
+const manager =
+  document.getElementById("manager");
 
-const batchNumber = document.getElementById("batchNumber");
-const totalBatches = document.getElementById("totalBatches");
-const batchInfo = document.getElementById("batchInfo");
+const debug =
+  document.getElementById("debug");
 
-const progressBar = document.getElementById("progressBar");
-const progressText = document.getElementById("progressText");
+const debugContent =
+  document.getElementById("debugContent");
 
-const userList = document.getElementById("userList");
-const search = document.getElementById("search");
+const followersCount =
+  document.getElementById("followersCount");
 
-const selectAll = document.getElementById("selectAll");
-const clearAll = document.getElementById("clearAll");
+const followingCount =
+  document.getElementById("followingCount");
 
-const previousBatch = document.getElementById("previousBatch");
-const nextBatch = document.getElementById("nextBatch");
-const resetProgress = document.getElementById("resetProgress");
+const notFollowingCount =
+  document.getElementById("notFollowingCount");
+
+const batchNumber =
+  document.getElementById("batchNumber");
+
+const totalBatches =
+  document.getElementById("totalBatches");
+
+const batchInfo =
+  document.getElementById("batchInfo");
+
+const progressBar =
+  document.getElementById("progressBar");
+
+const progressText =
+  document.getElementById("progressText");
+
+const userList =
+  document.getElementById("userList");
+
+const search =
+  document.getElementById("search");
+
+const selectAll =
+  document.getElementById("selectAll");
+
+const clearAll =
+  document.getElementById("clearAll");
+
+const previousBatch =
+  document.getElementById("previousBatch");
+
+const nextBatch =
+  document.getElementById("nextBatch");
+
+const resetProgress =
+  document.getElementById("resetProgress");
+
 
 const BATCH_SIZE = 100;
 
 let notFollowingUsers = [];
-let currentBatch = 0;
 
-/*
-  Guardamos aquí los usuarios que ya has
-  procesado manualmente.
-*/
 let processedUsers = new Set();
 
-/*
-  Recuperar progreso anterior.
-*/
+let currentBatch = 0;
+
+
+/* =====================================================
+   CARGAR PROGRESO
+===================================================== */
+
 loadProgress();
 
 
-/* =========================================================
+/* =====================================================
    CARGAR ZIP
-========================================================= */
+===================================================== */
 
-zipInput.addEventListener("change", async (event) => {
-
-    const file = event.target.files[0];
-
-    if (!file) return;
+zipInput.addEventListener(
+  "change",
+  async function(event) {
 
     try {
 
-        status.textContent =
-            "⏳ Analizando ZIP de Instagram...";
+      const file =
+        event.target.files[0];
 
-        stats.classList.add("hidden");
-        batchSection.classList.add("hidden");
-        debug.classList.add("hidden");
+      if (!file) {
 
-        const zip = await JSZip.loadAsync(file);
+        return;
 
-        const allFiles = Object.keys(zip.files);
+      }
 
-        /* =================================================
-           FOLLOWERS
-        ================================================= */
 
-        const followersFiles = allFiles
-            .filter(path => {
+      status.textContent =
+        "⏳ Leyendo ZIP de Instagram...";
 
-                const name =
-                    path.split("/").pop().toLowerCase();
 
-                return /^followers(_\d+)?\.json$/i.test(name);
+      stats.classList.add(
+        "hidden"
+      );
 
-            })
-            .sort((a, b) => {
+      manager.classList.add(
+        "hidden"
+      );
 
-                return getFileNumber(a) - getFileNumber(b);
+      debug.classList.add(
+        "hidden"
+      );
 
-            });
 
+      if (
+        typeof JSZip === "undefined"
+      ) {
 
-        /* =================================================
-           FOLLOWING
-        ================================================= */
-
-        const followingFiles = allFiles
-            .filter(path => {
-
-                const name =
-                    path.split("/").pop().toLowerCase();
-
-                return /^following(_\d+)?\.json$/i.test(name);
-
-            });
-
-
-        /* =================================================
-           DEBUG
-        ================================================= */
-
-        debug.classList.remove("hidden");
-
-        debugContent.innerHTML = `
-            <p>
-                <strong>Archivos followers:</strong>
-                ${followersFiles.length}
-            </p>
-
-            <p>
-                <strong>Archivos following:</strong>
-                ${followingFiles.length}
-            </p>
-
-            <details>
-                <summary>Ver archivos detectados</summary>
-                <pre>${escapeHtml(
-                    [
-                        ...followersFiles,
-                        ...followingFiles
-                    ].join("\n")
-                )}</pre>
-            </details>
-        `;
-
-
-        if (followersFiles.length === 0) {
-
-            status.textContent =
-                "❌ No encuentro followers_*.json";
-
-            return;
-        }
-
-
-        if (followingFiles.length === 0) {
-
-            status.textContent =
-                "❌ No encuentro following.json";
-
-            return;
-        }
-
-
-        /* =================================================
-           EXTRAER FOLLOWERS
-        ================================================= */
-
-        const followers = new Set();
-
-        for (const filename of followersFiles) {
-
-            const zipFile = zip.files[filename];
-
-            if (!zipFile || zipFile.dir) continue;
-
-            const content =
-                await zipFile.async("string");
-
-            let data;
-
-            try {
-
-                data = JSON.parse(content);
-
-            } catch {
-
-                continue;
-            }
-
-            const users = extractFollowers(data);
-
-            users.forEach(username => {
-                followers.add(username);
-            });
-        }
-
-
-        /* =================================================
-           EXTRAER FOLLOWING
-        ================================================= */
-
-        const following = new Set();
-
-        for (const filename of followingFiles) {
-
-            const zipFile = zip.files[filename];
-
-            if (!zipFile || zipFile.dir) continue;
-
-            const content =
-                await zipFile.async("string");
-
-            let data;
-
-            try {
-
-                data = JSON.parse(content);
-
-            } catch {
-
-                continue;
-            }
-
-            const users = extractFollowing(data);
-
-            users.forEach(username => {
-                following.add(username);
-            });
-        }
-
-
-        /* =================================================
-           DEBUG
-        ================================================= */
-
-        debugContent.innerHTML += `
-            <hr>
-
-            <p>
-                <strong>Followers encontrados:</strong>
-                ${followers.size}
-            </p>
-
-            <p>
-                <strong>Following encontrados:</strong>
-                ${following.size}
-            </p>
-        `;
-
-
-        if (followers.size === 0) {
-
-            status.textContent =
-                "❌ No hemos podido extraer los seguidores.";
-
-            return;
-        }
-
-
-        if (following.size === 0) {
-
-            status.textContent =
-                "❌ No hemos podido extraer los seguidos.";
-
-            return;
-        }
-
-
-        /* =================================================
-           COMPARAR
-        ================================================= */
-
-        notFollowingUsers =
-            [...following]
-                .filter(username => !followers.has(username))
-                .sort((a, b) =>
-                    a.localeCompare(b)
-                );
-
-
-        /* =================================================
-           ESTADÍSTICAS
-        ================================================= */
-
-        followersCount.textContent =
-            followers.size;
-
-        followingCount.textContent =
-            following.size;
-
-        notFollowingCount.textContent =
-            notFollowingUsers.length;
-
-
-        stats.classList.remove("hidden");
-
-        /*
-          Intentamos conservar el progreso anterior,
-          pero solo si corresponde a estos usuarios.
-        */
-        processedUsers = new Set(
-            [...processedUsers]
-                .filter(username =>
-                    notFollowingUsers.includes(username)
-                )
+        throw new Error(
+          "JSZip no se ha cargado."
         );
 
-        saveProgress();
+      }
 
 
-        /*
-          Restauramos un lote razonable.
-        */
-        const maxBatch =
-            getTotalBatches() - 1;
+      const zip =
+        await JSZip.loadAsync(
+          file
+        );
 
-        if (currentBatch > maxBatch) {
-            currentBatch = Math.max(0, maxBatch);
+
+      const files =
+        Object.keys(
+          zip.files
+        );
+
+
+      console.log(
+        "Archivos:",
+        files
+      );
+
+
+      /* =================================================
+         BUSCAR FOLLOWERS
+      ================================================= */
+
+      const followersFiles =
+        files
+          .filter(function(path) {
+
+            const name =
+              path
+                .split("/")
+                .pop()
+                .toLowerCase();
+
+
+            return /^followers(_\d+)?\.json$/i
+              .test(name);
+
+          })
+          .sort();
+
+
+      /* =================================================
+         BUSCAR FOLLOWING
+      ================================================= */
+
+      const followingFiles =
+        files
+          .filter(function(path) {
+
+            const name =
+              path
+                .split("/")
+                .pop()
+                .toLowerCase();
+
+
+            return /^following(_\d+)?\.json$/i
+              .test(name);
+
+          });
+
+
+      /* =================================================
+         DIAGNÓSTICO
+      ================================================= */
+
+      debug.classList.remove(
+        "hidden"
+      );
+
+
+      debugContent.innerHTML = `
+
+        <p>
+          <strong>Followers JSON:</strong>
+          ${followersFiles.length}
+        </p>
+
+        <p>
+          <strong>Following JSON:</strong>
+          ${followingFiles.length}
+        </p>
+
+        <details>
+
+          <summary>
+            Archivos encontrados
+          </summary>
+
+          <pre>${escapeHtml(
+            [
+              ...followersFiles,
+              ...followingFiles
+            ].join("\n")
+          )}</pre>
+
+        </details>
+
+      `;
+
+
+      if (
+        followersFiles.length === 0
+      ) {
+
+        throw new Error(
+          "No se encontró followers_*.json"
+        );
+
+      }
+
+
+      if (
+        followingFiles.length === 0
+      ) {
+
+        throw new Error(
+          "No se encontró following.json"
+        );
+
+      }
+
+
+      /* =================================================
+         FOLLOWERS
+      ================================================= */
+
+      const followers =
+        new Set();
+
+
+      for (
+        const path of followersFiles
+      ) {
+
+        const zipFile =
+          zip.files[path];
+
+
+        if (
+          !zipFile ||
+          zipFile.dir
+        ) {
+
+          continue;
+
         }
 
 
-        batchSection.classList.remove("hidden");
+        const content =
+          await zipFile.async(
+            "string"
+          );
 
-        renderBatch();
 
-        status.textContent =
-            `✅ Análisis completado. ${notFollowingUsers.length} cuentas no te siguen.`;
+        let data;
+
+
+        try {
+
+          data =
+            JSON.parse(
+              content
+            );
+
+        } catch {
+
+          continue;
+
+        }
+
+
+        const users =
+          extractFollowers(
+            data
+          );
+
+
+        users.forEach(
+          function(username) {
+
+            followers.add(
+              username
+            );
+
+          }
+        );
+
+      }
+
+
+      /* =================================================
+         FOLLOWING
+      ================================================= */
+
+      const following =
+        new Set();
+
+
+      for (
+        const path of followingFiles
+      ) {
+
+        const zipFile =
+          zip.files[path];
+
+
+        if (
+          !zipFile ||
+          zipFile.dir
+        ) {
+
+          continue;
+
+        }
+
+
+        const content =
+          await zipFile.async(
+            "string"
+          );
+
+
+        let data;
+
+
+        try {
+
+          data =
+            JSON.parse(
+              content
+            );
+
+        } catch {
+
+          continue;
+
+        }
+
+
+        const users =
+          extractFollowing(
+            data
+          );
+
+
+        users.forEach(
+          function(username) {
+
+            following.add(
+              username
+            );
+
+          }
+        );
+
+      }
+
+
+      /* =================================================
+         MOSTRAR DEBUG
+      ================================================= */
+
+      debugContent.innerHTML += `
+
+        <hr>
+
+        <p>
+          <strong>Seguidores encontrados:</strong>
+          ${followers.size}
+        </p>
+
+        <p>
+          <strong>Siguiendo encontrados:</strong>
+          ${following.size}
+        </p>
+
+      `;
+
+
+      /* =================================================
+         VALIDACIÓN
+      ================================================= */
+
+      if (
+        followers.size === 0
+      ) {
+
+        throw new Error(
+          "Se encontró followers_1.json pero no se pudieron extraer usuarios."
+        );
+
+      }
+
+
+      if (
+        following.size === 0
+      ) {
+
+        throw new Error(
+          "Se encontró following.json pero no se pudieron extraer usuarios."
+        );
+
+      }
+
+
+      /* =================================================
+         COMPARAR
+      ================================================= */
+
+      notFollowingUsers =
+        Array
+          .from(following)
+          .filter(function(username) {
+
+            return !followers.has(
+              username
+            );
+
+          })
+          .sort(function(a, b) {
+
+            return a.localeCompare(
+              b
+            );
+
+          });
+
+
+      /* =================================================
+         ELIMINAR PROGRESO INVÁLIDO
+      ================================================= */
+
+      processedUsers =
+        new Set(
+          Array
+            .from(processedUsers)
+            .filter(function(username) {
+
+              return notFollowingUsers.includes(
+                username
+              );
+
+            })
+        );
+
+
+      saveProgress();
+
+
+      /* =================================================
+         ESTADÍSTICAS
+      ================================================= */
+
+      followersCount.textContent =
+        followers.size;
+
+      followingCount.textContent =
+        following.size;
+
+      notFollowingCount.textContent =
+        notFollowingUsers.length;
+
+
+      stats.classList.remove(
+        "hidden"
+      );
+
+
+      manager.classList.remove(
+        "hidden"
+      );
+
+
+      const maxBatch =
+        Math.max(
+          0,
+          getTotalBatches() - 1
+        );
+
+
+      if (
+        currentBatch >
+        maxBatch
+      ) {
+
+        currentBatch =
+          maxBatch;
+
+      }
+
+
+      renderBatch();
+
+
+      status.textContent =
+        "✅ Análisis completado.";
+
 
     } catch (error) {
 
-        console.error(error);
+      console.error(
+        error
+      );
 
-        status.textContent =
-            "❌ Error analizando el ZIP.";
 
-        debug.classList.remove("hidden");
+      status.textContent =
+        "❌ " + error.message;
 
-        debugContent.innerHTML += `
-            <hr>
-            <pre>${escapeHtml(
-                error.stack || error.toString()
-            )}</pre>
-        `;
+
+      debug.classList.remove(
+        "hidden"
+      );
+
+
+      debugContent.innerHTML += `
+
+        <hr>
+
+        <pre>${escapeHtml(
+          error.stack ||
+          error.toString()
+        )}</pre>
+
+      `;
+
     }
 
-});
+  }
+);
 
 
-/* =========================================================
-   EXTRAER FOLLOWERS
-========================================================= */
+/* =====================================================
+   FOLLOWERS
+===================================================== */
 
-function extractFollowers(data) {
-
-    const usernames = new Set();
-
-    if (Array.isArray(data)) {
-
-        for (const entry of data) {
-
-            extractFromEntry(
-                entry,
-                usernames
-            );
-        }
-
-        return usernames;
-    }
-
-    extractRecursively(
-        data,
-        usernames
-    );
-
-    return usernames;
-}
-
-
-/* =========================================================
-   EXTRAER FOLLOWING
-========================================================= */
-
-function extractFollowing(data) {
-
-    const usernames = new Set();
-
-    if (
-        data &&
-        Array.isArray(data.relationships_following)
-    ) {
-
-        for (
-            const entry
-            of data.relationships_following
-        ) {
-
-            if (
-                typeof entry.title === "string"
-            ) {
-
-                const username =
-                    cleanUsername(entry.title);
-
-                if (username) {
-                    usernames.add(username);
-                }
-            }
-
-            extractFromEntry(
-                entry,
-                usernames
-            );
-        }
-
-        return usernames;
-    }
-
-    extractRecursively(
-        data,
-        usernames
-    );
-
-    return usernames;
-}
-
-
-/* =========================================================
-   EXTRAER UNA ENTRADA
-========================================================= */
-
-function extractFromEntry(
-    entry,
-    usernames
+function extractFollowers(
+  data
 ) {
 
-    if (
-        !entry ||
-        typeof entry !== "object"
-    ) {
-        return;
-    }
+  const users =
+    new Set();
 
 
-    if (
-        Array.isArray(entry.string_list_data)
-    ) {
+  if (
+    Array.isArray(
+      data
+    )
+  ) {
 
-        for (
-            const item
-            of entry.string_list_data
-        ) {
+    data.forEach(
+      function(entry) {
 
-            if (
-                item &&
-                typeof item.value === "string"
-            ) {
+        extractEntry(
+          entry,
+          users
+        );
 
-                const username =
-                    cleanUsername(item.value);
-
-                if (username) {
-                    usernames.add(username);
-                }
-            }
-        }
-    }
+      }
+    );
 
 
-    if (
-        typeof entry.title === "string"
-    ) {
+    return users;
 
-        const username =
-            cleanUsername(entry.title);
-
-        if (username) {
-            usernames.add(username);
-        }
-    }
-}
+  }
 
 
-/* =========================================================
-   RECURSIVO
-========================================================= */
-
-function extractRecursively(
+  recursiveExtract(
     data,
-    usernames
-) {
-
-    if (!data) return;
+    users
+  );
 
 
-    if (Array.isArray(data)) {
-
-        data.forEach(item =>
-            extractRecursively(
-                item,
-                usernames
-            )
-        );
-
-        return;
-    }
-
-
-    if (typeof data === "object") {
-
-        extractFromEntry(
-            data,
-            usernames
-        );
-
-        Object.values(data).forEach(value =>
-            extractRecursively(
-                value,
-                usernames
-            )
-        );
-    }
+  return users;
 }
 
 
-/* =========================================================
-   LIMPIAR USERNAME
-========================================================= */
+/* =====================================================
+   FOLLOWING
+===================================================== */
 
-function cleanUsername(value) {
+function extractFollowing(
+  data
+) {
 
-    if (!value) return null;
+  const users =
+    new Set();
+
+
+  if (
+    data &&
+    Array.isArray(
+      data.relationships_following
+    )
+  ) {
+
+    data
+      .relationships_following
+      .forEach(
+        function(entry) {
+
+          extractEntry(
+            entry,
+            users
+          );
+
+        }
+      );
+
+
+    return users;
+
+  }
+
+
+  recursiveExtract(
+    data,
+    users
+  );
+
+
+  return users;
+}
+
+
+/* =====================================================
+   EXTRAER ENTRADA
+===================================================== */
+
+function extractEntry(
+  entry,
+  users
+) {
+
+  if (
+    !entry ||
+    typeof entry !== "object"
+  ) {
+
+    return;
+
+  }
+
+
+  /* title */
+
+  if (
+    typeof entry.title === "string"
+  ) {
 
     const username =
-        value
-            .trim()
-            .replace(/^@/, "")
-            .toLowerCase();
+      cleanUsername(
+        entry.title
+      );
 
 
-    if (
-        !/^[a-zA-Z0-9._]+$/.test(username)
-    ) {
-        return null;
+    if (username) {
+
+      users.add(
+        username
+      );
+
     }
 
-
-    if (username.length > 40) {
-        return null;
-    }
+  }
 
 
-    return username;
+  /* string_list_data */
+
+  if (
+    Array.isArray(
+      entry.string_list_data
+    )
+  ) {
+
+    entry
+      .string_list_data
+      .forEach(
+        function(item) {
+
+          if (
+            item &&
+            typeof item.value === "string"
+          ) {
+
+            const username =
+              cleanUsername(
+                item.value
+              );
+
+
+            if (username) {
+
+              users.add(
+                username
+              );
+
+            }
+
+          }
+
+        }
+      );
+
+  }
+
 }
 
 
-/* =========================================================
-   NÚMERO ARCHIVO FOLLOWERS
-========================================================= */
+/* =====================================================
+   RECURSIVO
+===================================================== */
 
-function getFileNumber(path) {
+function recursiveExtract(
+  data,
+  users
+) {
 
-    const name =
-        path.split("/").pop();
+  if (!data) {
 
-    const match =
-        name.match(
-            /followers_(\d+)\.json/i
+    return;
+
+  }
+
+
+  if (
+    Array.isArray(
+      data
+    )
+  ) {
+
+    data.forEach(
+      function(item) {
+
+        recursiveExtract(
+          item,
+          users
         );
 
-    if (!match) {
-        return 1;
-    }
-
-    return parseInt(
-        match[1],
-        10
+      }
     );
+
+
+    return;
+
+  }
+
+
+  if (
+    typeof data === "object"
+  ) {
+
+    extractEntry(
+      data,
+      users
+    );
+
+
+    Object
+      .values(data)
+      .forEach(
+        function(value) {
+
+          recursiveExtract(
+            value,
+            users
+          );
+
+        }
+      );
+
+  }
+
 }
 
 
-/* =========================================================
+/* =====================================================
+   LIMPIAR USERNAME
+===================================================== */
+
+function cleanUsername(
+  value
+) {
+
+  if (!value) {
+
+    return null;
+
+  }
+
+
+  const username =
+    value
+      .trim()
+      .replace(
+        /^@/,
+        ""
+      )
+      .toLowerCase();
+
+
+  if (
+    username.length === 0
+  ) {
+
+    return null;
+
+  }
+
+
+  if (
+    username.length > 40
+  ) {
+
+    return null;
+
+  }
+
+
+  if (
+    !/^[a-zA-Z0-9._]+$/.test(
+      username
+    )
+  ) {
+
+    return null;
+
+  }
+
+
+  return username;
+}
+
+
+/* =====================================================
    LOTES
-========================================================= */
+===================================================== */
 
 function getTotalBatches() {
 
-    return Math.max(
-        1,
-        Math.ceil(
-            notFollowingUsers.length /
-            BATCH_SIZE
-        )
-    );
+  return Math.max(
+    1,
+    Math.ceil(
+      notFollowingUsers.length /
+      BATCH_SIZE
+    )
+  );
+
 }
 
 
 function getCurrentBatchUsers() {
 
-    const start =
-        currentBatch * BATCH_SIZE;
+  const start =
+    currentBatch *
+    BATCH_SIZE;
 
-    const end =
-        start + BATCH_SIZE;
 
-    return notFollowingUsers.slice(
-        start,
-        end
-    );
+  return notFollowingUsers.slice(
+    start,
+    start + BATCH_SIZE
+  );
+
 }
 
 
-/* =========================================================
-   RENDERIZAR LOTE
-========================================================= */
+/* =====================================================
+   RENDER LOTE
+===================================================== */
 
 function renderBatch() {
 
-    if (
-        notFollowingUsers.length === 0
-    ) {
-        return;
-    }
+  const users =
+    getCurrentBatchUsers();
 
 
-    const total =
-        getTotalBatches();
-
-    const users =
-        getCurrentBatchUsers();
+  const total =
+    getTotalBatches();
 
 
-    batchNumber.textContent =
-        currentBatch + 1;
-
-    totalBatches.textContent =
-        total;
+  batchNumber.textContent =
+    currentBatch + 1;
 
 
-    const startNumber =
-        currentBatch * BATCH_SIZE + 1;
-
-    const endNumber =
-        currentBatch * BATCH_SIZE +
-        users.length;
+  totalBatches.textContent =
+    total;
 
 
-    batchInfo.textContent =
-        `Cuentas ${startNumber}–${endNumber}`;
+  const first =
+    currentBatch *
+    BATCH_SIZE +
+    1;
 
 
-    renderUsers(users);
-
-    updateProgress();
-
-
-    previousBatch.disabled =
-        currentBatch === 0;
-
-    nextBatch.disabled =
-        currentBatch >= total - 1;
+  const last =
+    currentBatch *
+    BATCH_SIZE +
+    users.length;
 
 
-    previousBatch.textContent =
-        currentBatch === 0
-            ? "← Anterior"
-            : `← Lote ${currentBatch}`;
+  batchInfo.textContent =
+    `Cuentas ${first}–${last}`;
 
 
-    nextBatch.textContent =
-        currentBatch >= total - 1
-            ? "Último lote"
-            : `Siguiente →`;
+  renderUsers(
+    users
+  );
+
+
+  updateProgress();
+
+
+  previousBatch.disabled =
+    currentBatch === 0;
+
+
+  nextBatch.disabled =
+    currentBatch >= total - 1;
+
 }
 
 
-/* =========================================================
-   RENDERIZAR USUARIOS
-========================================================= */
+/* =====================================================
+   RENDER USUARIOS
+===================================================== */
 
-function renderUsers(users) {
-
-    const query =
-        search.value
-            .trim()
-            .toLowerCase();
-
-
-    userList.innerHTML = "";
-
-
-    const filtered =
-        users.filter(username =>
-            username.includes(query)
-        );
-
-
-    if (filtered.length === 0) {
-
-        userList.innerHTML = `
-            <div class="user">
-                No hay resultados.
-            </div>
-        `;
-
-        return;
-    }
-
-
-    filtered.forEach(username => {
-
-        const row =
-            document.createElement("div");
-
-        row.className =
-            "user";
-
-
-        if (
-            processedUsers.has(username)
-        ) {
-
-            row.classList.add(
-                "processed"
-            );
-        }
-
-
-        const checkbox =
-            document.createElement(
-                "input"
-            );
-
-        checkbox.type =
-            "checkbox";
-
-        checkbox.className =
-            "userCheckbox";
-
-        checkbox.value =
-            username;
-
-        checkbox.checked =
-            processedUsers.has(username);
-
-
-        const name =
-            document.createElement(
-                "span"
-            );
-
-        name.textContent =
-            "@" + username;
-
-
-        /*
-          Abrir directamente el perfil.
-        */
-
-        const openButton =
-            document.createElement(
-                "button"
-            );
-
-        openButton.type =
-            "button";
-
-        openButton.className =
-            "open-instagram";
-
-        openButton.textContent =
-            "Abrir";
-
-
-        openButton.addEventListener(
-            "click",
-            () => {
-
-                const url =
-                    `https://www.instagram.com/${encodeURIComponent(username)}/`;
-
-                window.open(
-                    url,
-                    "_blank"
-                );
-
-            }
-        );
-
-
-        /*
-          Marcar como procesado.
-        */
-
-        checkbox.addEventListener(
-            "change",
-            () => {
-
-                if (
-                    checkbox.checked
-                ) {
-
-                    processedUsers.add(
-                        username
-                    );
-
-                } else {
-
-                    processedUsers.delete(
-                        username
-                    );
-                }
-
-
-                saveProgress();
-
-                updateProgress();
-
-                updateProcessedRow(
-                    row,
-                    username
-                );
-            }
-        );
-
-
-        row.appendChild(
-            checkbox
-        );
-
-        row.appendChild(
-            name
-        );
-
-        row.appendChild(
-            openButton
-        );
-
-
-        userList.appendChild(
-            row
-        );
-
-    });
-}
-
-
-/* =========================================================
-   ACTUALIZAR FILA PROCESADA
-========================================================= */
-
-function updateProcessedRow(
-    row,
-    username
+function renderUsers(
+  users
 ) {
 
-    if (
-        processedUsers.has(username)
-    ) {
+  const query =
+    search.value
+      .trim()
+      .toLowerCase();
+
+
+  userList.innerHTML =
+    "";
+
+
+  const filtered =
+    users.filter(
+      function(username) {
+
+        return username.includes(
+          query
+        );
+
+      }
+    );
+
+
+  if (
+    filtered.length === 0
+  ) {
+
+    userList.innerHTML = `
+      <div class="user">
+        No hay resultados.
+      </div>
+    `;
+
+
+    return;
+
+  }
+
+
+  filtered.forEach(
+    function(username) {
+
+      const row =
+        document.createElement(
+          "div"
+        );
+
+
+      row.className =
+        "user";
+
+
+      if (
+        processedUsers.has(
+          username
+        )
+      ) {
 
         row.classList.add(
-            "processed"
+          "processed"
         );
 
-    } else {
+      }
 
-        row.classList.remove(
-            "processed"
+
+      const checkbox =
+        document.createElement(
+          "input"
         );
+
+
+      checkbox.type =
+        "checkbox";
+
+
+      checkbox.checked =
+        processedUsers.has(
+          username
+        );
+
+
+      checkbox.addEventListener(
+        "change",
+        function() {
+
+          if (
+            checkbox.checked
+          ) {
+
+            processedUsers.add(
+              username
+            );
+
+          } else {
+
+            processedUsers.delete(
+              username
+            );
+
+          }
+
+
+          saveProgress();
+
+
+          updateProgress();
+
+
+          if (
+            checkbox.checked
+          ) {
+
+            row.classList.add(
+              "processed"
+            );
+
+          } else {
+
+            row.classList.remove(
+              "processed"
+            );
+
+          }
+
+        }
+      );
+
+
+      const name =
+        document.createElement(
+          "span"
+        );
+
+
+      name.className =
+        "user-name";
+
+
+      name.textContent =
+        "@" + username;
+
+
+      const openButton =
+        document.createElement(
+          "button"
+        );
+
+
+      openButton.className =
+        "open-button";
+
+
+      openButton.textContent =
+        "Abrir";
+
+
+      openButton.addEventListener(
+        "click",
+        function() {
+
+          window.open(
+            "https://www.instagram.com/" +
+            encodeURIComponent(
+              username
+            ) +
+            "/",
+            "_blank"
+          );
+
+        }
+      );
+
+
+      row.appendChild(
+        checkbox
+      );
+
+
+      row.appendChild(
+        name
+      );
+
+
+      row.appendChild(
+        openButton
+      );
+
+
+      userList.appendChild(
+        row
+      );
+
     }
+  );
+
 }
 
 
-/* =========================================================
+/* =====================================================
    PROGRESO
-========================================================= */
+===================================================== */
 
 function updateProgress() {
 
-    const users =
-        getCurrentBatchUsers();
+  const users =
+    getCurrentBatchUsers();
 
 
-    const processedInBatch =
-        users.filter(username =>
-            processedUsers.has(username)
-        ).length;
+  const processed =
+    users.filter(
+      function(username) {
+
+        return processedUsers.has(
+          username
+        );
+
+      }
+    ).length;
 
 
-    const percentage =
-        users.length === 0
-            ? 0
-            : Math.round(
-                processedInBatch /
-                users.length *
-                100
-            );
+  const percent =
+    users.length === 0
+      ? 0
+      : Math.round(
+          processed /
+          users.length *
+          100
+        );
 
 
-    progressBar.style.width =
-        `${percentage}%`;
+  progressBar.style.width =
+    percent + "%";
 
 
-    progressText.textContent =
-        `${processedInBatch} / ${users.length} procesados (${percentage}%)`;
+  progressText.textContent =
+    `${processed} / ${users.length} procesados (${percent}%)`;
 
-
-    /*
-      Si se termina el lote,
-      ponemos una indicación visual.
-    */
-
-    if (
-        users.length > 0 &&
-        processedInBatch === users.length
-    ) {
-
-        batchInfo.textContent =
-            `✅ Lote ${currentBatch + 1} completado`;
-
-    }
 }
 
 
-/* =========================================================
+/* =====================================================
    BUSCADOR
-========================================================= */
+===================================================== */
 
 search.addEventListener(
-    "input",
-    () => {
+  "input",
+  function() {
 
-        renderUsers(
-            getCurrentBatchUsers()
-        );
+    renderUsers(
+      getCurrentBatchUsers()
+    );
 
-    }
+  }
 );
 
 
-/* =========================================================
-   SELECCIONAR TODOS
-========================================================= */
+/* =====================================================
+   SELECCIONAR LOTE
+===================================================== */
 
 selectAll.addEventListener(
-    "click",
-    () => {
+  "click",
+  function() {
 
-        const users =
-            getCurrentBatchUsers();
+    getCurrentBatchUsers()
+      .forEach(
+        function(username) {
 
-        users.forEach(username =>
-            processedUsers.add(username)
-        );
+          processedUsers.add(
+            username
+          );
+
+        }
+      );
 
 
-        saveProgress();
+    saveProgress();
 
-        renderUsers(users);
 
-        updateProgress();
-    }
+    renderBatch();
+
+  }
 );
 
 
-/* =========================================================
-   DESELECCIONAR TODOS
-========================================================= */
+/* =====================================================
+   DESELECCIONAR LOTE
+===================================================== */
 
 clearAll.addEventListener(
-    "click",
-    () => {
+  "click",
+  function() {
 
-        const users =
-            getCurrentBatchUsers();
+    getCurrentBatchUsers()
+      .forEach(
+        function(username) {
 
-        users.forEach(username =>
-            processedUsers.delete(username)
-        );
+          processedUsers.delete(
+            username
+          );
+
+        }
+      );
 
 
-        saveProgress();
+    saveProgress();
 
-        renderUsers(users);
 
-        updateProgress();
-    }
+    renderBatch();
+
+  }
 );
 
 
-/* =========================================================
-   LOTE ANTERIOR
-========================================================= */
+/* =====================================================
+   ANTERIOR
+===================================================== */
 
 previousBatch.addEventListener(
-    "click",
-    () => {
+  "click",
+  function() {
 
-        if (
-            currentBatch <= 0
-        ) {
-            return;
-        }
+    if (
+      currentBatch === 0
+    ) {
 
+      return;
 
-        currentBatch--;
-
-        search.value = "";
-
-        renderBatch();
-
-        saveProgress();
     }
+
+
+    currentBatch--;
+
+    search.value =
+      "";
+
+
+    saveProgress();
+
+    renderBatch();
+
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
+
+  }
 );
 
 
-/* =========================================================
-   SIGUIENTE LOTE
-========================================================= */
+/* =====================================================
+   SIGUIENTE
+===================================================== */
 
 nextBatch.addEventListener(
-    "click",
-    () => {
+  "click",
+  function() {
 
-        const total =
-            getTotalBatches();
-
-
-        if (
-            currentBatch >= total - 1
-        ) {
-            return;
-        }
+    const total =
+      getTotalBatches();
 
 
-        currentBatch++;
+    if (
+      currentBatch >=
+      total - 1
+    ) {
 
-        search.value = "";
+      return;
 
-        renderBatch();
+    }
 
-        saveProgress();
 
-        
+    currentBatch++;
+
+    search.value =
+      "";
+
+
+    saveProgress();
+
+    renderBatch();
+
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
+
+  }
+);
+
+
+/* =====================================================
+   REINICIAR
+===================================================== */
+
+resetProgress.addEventListener(
+  "click",
+  function() {
+
+    const confirmReset =
+      window.confirm(
+        "¿Quieres borrar todo el progreso?"
+      );
+
+
+    if (!confirmReset) {
+
+      return;
+
+    }
+
+
+    processedUsers =
+      new Set();
+
+
+    currentBatch =
+      0;
+
+
+    saveProgress();
+
+
+    renderBatch();
+
+  }
+);
+
+
+/* =====================================================
+   GUARDAR
+===================================================== */
+
+function saveProgress() {
+
+  const data = {
+
+    processedUsers:
+      Array.from(
+        processedUsers
+      ),
+
+    currentBatch:
+      currentBatch
+
+  };
+
+
+  localStorage.setItem(
+    "instagramUnfollowersProgress",
+    JSON.stringify(
+      data
+    )
+  );
+
+}
+
+
+/* =====================================================
+   RECUPERAR
+===================================================== */
+
+function loadProgress() {
+
+  try {
+
+    const saved =
+      localStorage.getItem(
+        "instagramUnfollowersProgress"
+      );
+
+
+    if (!saved) {
+
+      return;
+
+    }
+
+
+    const data =
+      JSON.parse(
+        saved
+      );
+
+
+    if (
+      Array.isArray(
+        data.processedUsers
+      )
+    ) {
+
+      processedUsers =
+        new Set(
+          data.processedUs
