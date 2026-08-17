@@ -1,3 +1,4 @@
+alert("APP JS NUEVO CARGADO");
 const zipInput = document.getElementById("zipInput");
 const status = document.getElementById("status");
 
