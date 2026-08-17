@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#111111">
+  <meta name="description" content="Analiza quién no te sigue en Instagram">
+  <link rel="manifest" href="manifest.json">
+  <title>Instagram Unfollowers</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <main class="app">
+
+    <header>
+      <h1>Instagram Unfollowers</h1>
+      <p>Descubre quién no te sigue de vuelta.</p>
+    </header>
+
+    <section class="upload-card">
+      <div class="icon">📦</div>
+
+      <h2>Carga tus datos de Instagram</h2>
+
+      <p>
+        Selecciona el archivo ZIP que descargaste de Instagram.
+        El análisis se realiza en tu dispositivo.
+      </p>
+
+      <label class="upload-button">
+        📂 Seleccionar ZIP
+        <input id="zipInput" type="file" accept=".zip">
+      </label>
+
+      <div id="status"></div>
+    </section>
+
+    <section id="stats" class="stats hidden">
+
+      <div class="stat">
+        <strong id="followersCount">0</strong>
+        <span>Seguidores</span>
+      </div>
+
+      <div class="stat">
+        <strong id="followingCount">0</strong>
+        <span>Siguiendo</span>
+      </div>
+
+      <div class="stat danger">
+        <strong id="notFollowingCount">0</strong>
+        <span>No te siguen</span>
+      </div>
+
+    </section>
+
+    <section id="results" class="results hidden">
+
+      <input
+        id="search"
+        type="search"
+        placeholder="🔎 Buscar usuario..."
+      >
+
+      <div class="actions">
+        <button id="selectAll">Seleccionar todos</button>
+        <button id="clearAll">Deseleccionar</button>
+      </div>
+
+      <div id="userList"></div>
+
+    </section>
+
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="app.js"></script>
+
+</body>
+</html>
