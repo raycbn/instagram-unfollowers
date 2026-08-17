@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#111111">
-  <meta name="description" content="Analiza quién no te sigue en Instagram">
+  <meta name="description" content="Gestiona las cuentas de Instagram que no te siguen">
 
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
@@ -18,9 +18,11 @@
 
     <header>
       <h1>Instagram Unfollowers</h1>
-      <p>Descubre quién no te sigue de vuelta.</p>
+      <p>Gestiona las cuentas que no te siguen.</p>
     </header>
 
+
+    <!-- CARGAR ZIP -->
     <section class="upload-card">
 
       <div class="icon">📦</div>
@@ -28,8 +30,8 @@
       <h2>Carga tus datos de Instagram</h2>
 
       <p>
-        Selecciona el archivo ZIP que descargaste de Instagram.
-        El análisis se realiza en tu dispositivo.
+        Selecciona el ZIP descargado desde Instagram.
+        Todo el análisis se realiza en tu dispositivo.
       </p>
 
       <label class="upload-button">
@@ -46,6 +48,7 @@
     </section>
 
 
+    <!-- ESTADÍSTICAS -->
     <section id="stats" class="stats hidden">
 
       <div class="stat">
@@ -66,13 +69,53 @@
     </section>
 
 
-    <section id="results" class="results hidden">
+    <!-- GESTOR DE LOTES -->
+    <section id="batchSection" class="batch-section hidden">
+
+      <div class="batch-header">
+
+        <div>
+          <h2>🚫 No te siguen</h2>
+          <p id="batchInfo">Lote 1</p>
+        </div>
+
+        <div class="batch-counter">
+          <strong id="batchNumber">1</strong>
+          <span>/ <span id="totalBatches">1</span></span>
+        </div>
+
+      </div>
+
+
+      <!-- PROGRESO DEL LOTE -->
+
+      <div class="progress-container">
+
+        <div class="progress-bar">
+          <div
+            id="progressBar"
+            class="progress-fill"
+            style="width: 0%"
+          ></div>
+        </div>
+
+        <p id="progressText">
+          0 / 100 procesados
+        </p>
+
+      </div>
+
+
+      <!-- BUSCADOR -->
 
       <input
         id="search"
         type="search"
         placeholder="🔎 Buscar usuario..."
       >
+
+
+      <!-- ACCIONES -->
 
       <div class="actions">
 
@@ -86,10 +129,46 @@
 
       </div>
 
+
+      <!-- LISTA -->
+
       <div id="userList"></div>
+
+
+      <!-- NAVEGACIÓN -->
+
+      <div class="batch-navigation">
+
+        <button
+          id="previousBatch"
+          class="secondary-button"
+        >
+          ← Anterior
+        </button>
+
+        <button
+          id="nextBatch"
+          class="primary-button"
+        >
+          Siguiente →
+        </button>
+
+      </div>
+
+
+      <!-- RESET -->
+
+      <button
+        id="resetProgress"
+        class="reset-button"
+      >
+        🗑️ Reiniciar progreso
+      </button>
 
     </section>
 
+
+    <!-- DEBUG -->
 
     <section id="debug" class="debug hidden">
 
@@ -102,13 +181,14 @@
   </main>
 
 
-  <!-- Librería ZIP -->
+  <!-- JSZip -->
   <script
     src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
   </script>
 
-  <!-- Versión forzada para evitar caché -->
-  <script src="app.js?v=3"></script>
+
+  <!-- Nuestra aplicación -->
+  <script src="app.js?v=4"></script>
 
 </body>
 </html>
