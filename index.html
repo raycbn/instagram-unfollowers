@@ -5,9 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#111111">
   <meta name="description" content="Analiza quién no te sigue en Instagram">
+
   <link rel="manifest" href="manifest.json">
-  <title>Instagram Unfollowers</title>
   <link rel="stylesheet" href="style.css">
+
+  <title>Instagram Unfollowers</title>
 </head>
 
 <body>
@@ -20,6 +22,7 @@
     </header>
 
     <section class="upload-card">
+
       <div class="icon">📦</div>
 
       <h2>Carga tus datos de Instagram</h2>
@@ -31,11 +34,17 @@
 
       <label class="upload-button">
         📂 Seleccionar ZIP
-        <input id="zipInput" type="file" accept=".zip">
+        <input
+          id="zipInput"
+          type="file"
+          accept=".zip,application/zip"
+        >
       </label>
 
       <div id="status"></div>
+
     </section>
+
 
     <section id="stats" class="stats hidden">
 
@@ -56,6 +65,7 @@
 
     </section>
 
+
     <section id="results" class="results hidden">
 
       <input
@@ -65,18 +75,40 @@
       >
 
       <div class="actions">
-        <button id="selectAll">Seleccionar todos</button>
-        <button id="clearAll">Deseleccionar</button>
+
+        <button id="selectAll">
+          Seleccionar todos
+        </button>
+
+        <button id="clearAll">
+          Deseleccionar
+        </button>
+
       </div>
 
       <div id="userList"></div>
 
     </section>
 
+
+    <section id="debug" class="debug hidden">
+
+      <h3>🔧 Información del análisis</h3>
+
+      <div id="debugContent"></div>
+
+    </section>
+
   </main>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="app.js"></script>
+
+  <!-- Librería ZIP -->
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
+  </script>
+
+  <!-- Versión forzada para evitar caché -->
+  <script src="app.js?v=3"></script>
 
 </body>
 </html>
