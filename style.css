@@ -1,0 +1,133 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f4f4f5;
+  color: #111;
+}
+
+.app {
+  max-width: 600px;
+  margin: auto;
+  padding: 20px;
+}
+
+header {
+  text-align: center;
+  padding: 25px 10px;
+}
+
+header h1 {
+  margin-bottom: 8px;
+}
+
+header p {
+  color: #666;
+}
+
+.upload-card {
+  background: white;
+  border-radius: 20px;
+  padding: 30px 20px;
+  text-align: center;
+  box-shadow: 0 5px 25px rgba(0,0,0,.08);
+}
+
+.icon {
+  font-size: 45px;
+}
+
+.upload-button {
+  display: inline-block;
+  background: #111;
+  color: white;
+  padding: 14px 22px;
+  border-radius: 12px;
+  cursor: pointer;
+  margin-top: 15px;
+}
+
+.upload-button input {
+  display: none;
+}
+
+#status {
+  margin-top: 15px;
+  color: #666;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.stat {
+  background: white;
+  padding: 15px 5px;
+  border-radius: 15px;
+  text-align: center;
+}
+
+.stat strong {
+  display: block;
+  font-size: 22px;
+}
+
+.stat span {
+  font-size: 12px;
+  color: #666;
+}
+
+.danger strong {
+  color: #e53935;
+}
+
+.results {
+  margin-top: 20px;
+}
+
+#search {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.actions button {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: white;
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: white;
+  margin-bottom: 6px;
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.user input {
+  width: 20px;
+  height: 20px;
+}
+
+.hidden {
+  display: none;
+}
