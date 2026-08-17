@@ -33,7 +33,11 @@ zipInput.addEventListener("change", async (event) => {
     try {
 
         status.textContent =
-            "⏳ Abriendo ZIP de Instagram...";
+            "⏳ Analizando ZIP de Instagram...";
+
+        stats.classList.add("hidden");
+        results.classList.add("hidden");
+        debug.classList.add("hidden");
 
         const zip =
             await JSZip.loadAsync(file);
@@ -41,91 +45,128 @@ zipInput.addEventListener("change", async (event) => {
         const allFiles =
             Object.keys(zip.files);
 
+
+        /* ========================================
+           LOCALIZAR ARCHIVOS
+        ======================================== */
+
+        const followersFiles = allFiles
+            .filter(path => {
+
+                const name =
+                    path.split("/").pop().toLowerCase();
+
+                return /^followers(_\d+)?\.json$/i
+                    .test(name);
+
+            })
+            .sort((a, b) => {
+
+                return getFileNumber(a) -
+                       getFileNumber(b);
+
+            });
+
+
+        const followingFiles = allFiles
+            .filter(path => {
+
+                const name =
+                    path.split("/").pop().toLowerCase();
+
+                return /^following(_\d+)?\.json$/i
+                    .test(name);
+
+            });
+
+
         console.log(
-            "ARCHIVOS DEL ZIP:",
-            allFiles
+            "Followers:",
+            followersFiles
+        );
+
+        console.log(
+            "Following:",
+            followingFiles
         );
 
 
-        /*
-        ========================================
-        BUSCAR ARCHIVOS DE RELACIONES
-        ========================================
-        */
-
-        const jsonFiles =
-            allFiles.filter(path =>
-                path.toLowerCase().endsWith(".json")
-            );
-
-
-        const relationshipFiles = [];
-
-
-        for (const path of jsonFiles) {
-
-            const name =
-                path.split("/").pop().toLowerCase();
-
-
-            /*
-            Solo examinamos archivos que
-            tengan alguna relación con
-            followers/following/connections.
-            */
-
-            if (
-                name.includes("follow") ||
-                name.includes("relationship")
-            ) {
-
-                relationshipFiles.push(path);
-
-            }
-
-        }
-
-
-        /*
-        ========================================
-        MOSTRAR DEBUG
-        ========================================
-        */
+        /* ========================================
+           DEBUG
+        ======================================== */
 
         debug.classList.remove("hidden");
 
         debugContent.innerHTML = `
-            <p><strong>JSON encontrados:</strong> ${jsonFiles.length}</p>
-            <p><strong>Archivos relacionados:</strong> ${relationshipFiles.length}</p>
+
+            <p>
+                <strong>Archivos followers:</strong>
+                ${followersFiles.length}
+            </p>
+
+            <p>
+                <strong>Archivos following:</strong>
+                ${followingFiles.length}
+            </p>
+
             <details>
-                <summary>Ver archivos detectados</summary>
+                <summary>
+                    Ver archivos detectados
+                </summary>
+
                 <pre>${escapeHtml(
-                    relationshipFiles.join("\n")
+                    [
+                        ...followersFiles,
+                        ...followingFiles
+                    ].join("\n")
                 )}</pre>
+
             </details>
         `;
 
 
-        /*
-        ========================================
-        BUSCAR FOLLOWERS Y FOLLOWING
-        POR EL CONTENIDO REAL
-        ========================================
-        */
+        /* ========================================
+           COMPROBAR ARCHIVOS
+        ======================================== */
 
-        let followers = new Set();
-        let following = new Set();
+        if (
+            followersFiles.length === 0
+        ) {
 
-        let followersDetected = [];
-        let followingDetected = [];
+            status.textContent =
+                "❌ No encuentro followers_*.json";
+
+            return;
+
+        }
+
+
+        if (
+            followingFiles.length === 0
+        ) {
+
+            status.textContent =
+                "❌ No encuentro following.json";
+
+            return;
+
+        }
+
+
+        /* ========================================
+           FOLLOWERS
+        ======================================== */
+
+        const followers =
+            new Set();
 
 
         for (
-            const path of relationshipFiles
+            const filename of followersFiles
         ) {
 
             const zipFile =
-                zip.files[path];
+                zip.files[filename];
 
             if (
                 !zipFile ||
@@ -135,18 +176,8 @@ zipInput.addEventListener("change", async (event) => {
             }
 
 
-            let content;
-
-            try {
-
-                content =
-                    await zipFile.async("string");
-
-            } catch {
-
-                continue;
-
-            }
+            const content =
+                await zipFile.async("string");
 
 
             let data;
@@ -158,175 +189,129 @@ zipInput.addEventListener("change", async (event) => {
 
             } catch {
 
-                continue;
-
-            }
-
-
-            /*
-            Convertimos todo el JSON
-            en un texto para detectar
-            la clave real.
-            */
-
-            const jsonText =
-                JSON.stringify(data)
-                    .toLowerCase();
-
-
-            /*
-            ========================================
-            FOLLOWERS
-            ========================================
-            */
-
-            if (
-                jsonText.includes(
-                    "relationships_followers"
-                )
-            ) {
-
-                const users =
-                    extractUsernames(data);
-
-                users.forEach(user =>
-                    followers.add(user)
-                );
-
-                followersDetected.push(
-                    path
+                console.warn(
+                    "No se pudo leer:",
+                    filename
                 );
 
                 continue;
+
             }
 
 
             /*
-            ========================================
-            FOLLOWING
-            ========================================
-            */
+             * followers_1.json normalmente
+             * es directamente un ARRAY.
+             */
 
-            if (
-                jsonText.includes(
-                    "relationships_following"
-                )
-            ) {
-
-                const users =
-                    extractUsernames(data);
-
-                users.forEach(user =>
-                    following.add(user)
-                );
-
-                followingDetected.push(
-                    path
-                );
-
-                continue;
-            }
+            const users =
+                extractFollowers(data);
 
 
-            /*
-            ========================================
-            FORMATO ALTERNATIVO
-            ========================================
-            */
-
-            const fileName =
-                path
-                    .split("/")
-                    .pop()
-                    .toLowerCase();
-
-
-            if (
-                fileName.startsWith("followers")
-            ) {
-
-                const users =
-                    extractUsernames(data);
-
-                users.forEach(user =>
-                    followers.add(user)
-                );
-
-                followersDetected.push(
-                    path
-                );
-
-            }
-
-
-            if (
-                fileName.startsWith("following")
-            ) {
-
-                const users =
-                    extractUsernames(data);
-
-                users.forEach(user =>
-                    following.add(user)
-                );
-
-                followingDetected.push(
-                    path
-                );
-
-            }
+            users.forEach(username =>
+                followers.add(username)
+            );
 
         }
 
 
-        /*
-        ========================================
-        ACTUALIZAR DEBUG
-        ========================================
-        */
+        /* ========================================
+           FOLLOWING
+        ======================================== */
+
+        const following =
+            new Set();
+
+
+        for (
+            const filename of followingFiles
+        ) {
+
+            const zipFile =
+                zip.files[filename];
+
+            if (
+                !zipFile ||
+                zipFile.dir
+            ) {
+                continue;
+            }
+
+
+            const content =
+                await zipFile.async("string");
+
+
+            let data;
+
+            try {
+
+                data =
+                    JSON.parse(content);
+
+            } catch {
+
+                console.warn(
+                    "No se pudo leer:",
+                    filename
+                );
+
+                continue;
+
+            }
+
+
+            /*
+             * following.json normalmente
+             * tiene:
+             *
+             * {
+             *   relationships_following: [...]
+             * }
+             */
+
+            const users =
+                extractFollowing(data);
+
+
+            users.forEach(username =>
+                following.add(username)
+            );
+
+        }
+
+
+        /* ========================================
+           DEBUG DETALLADO
+        ======================================== */
 
         debugContent.innerHTML += `
 
             <hr>
 
             <p>
-                <strong>Followers detectados:</strong>
-                ${followersDetected.length}
+                <strong>Followers encontrados:</strong>
+                ${followers.size}
             </p>
 
             <p>
-                <strong>Following detectados:</strong>
-                ${followingDetected.length}
+                <strong>Following encontrados:</strong>
+                ${following.size}
             </p>
 
-            <details>
-                <summary>Archivos de followers</summary>
-                <pre>${escapeHtml(
-                    followersDetected.join("\n")
-                )}</pre>
-            </details>
-
-            <details>
-                <summary>Archivos de following</summary>
-                <pre>${escapeHtml(
-                    followingDetected.join("\n")
-                )}</pre>
-            </details>
         `;
 
 
-        /*
-        ========================================
-        COMPROBAR
-        ========================================
-        */
+        /* ========================================
+           COMPROBACIONES
+        ======================================== */
 
         if (
             followers.size === 0
         ) {
 
             status.textContent =
-                "❌ No hemos podido encontrar tus seguidores.";
+                "❌ No hemos podido extraer los seguidores.";
 
             return;
 
@@ -338,18 +323,16 @@ zipInput.addEventListener("change", async (event) => {
         ) {
 
             status.textContent =
-                "❌ Hemos encontrado seguidores, pero no la lista de cuentas que sigues. Mira la sección de diagnóstico.";
+                "❌ Hemos encontrado el archivo following.json pero no hemos podido extraer sus usuarios.";
 
             return;
 
         }
 
 
-        /*
-        ========================================
-        COMPARACIÓN
-        ========================================
-        */
+        /* ========================================
+           COMPARAR
+        ======================================== */
 
         notFollowingUsers =
             [...following]
@@ -357,14 +340,15 @@ zipInput.addEventListener("change", async (event) => {
                     username =>
                         !followers.has(username)
                 )
-                .sort();
+                .sort(
+                    (a, b) =>
+                        a.localeCompare(b)
+                );
 
 
-        /*
-        ========================================
-        ESTADÍSTICAS
-        ========================================
-        */
+        /* ========================================
+           ESTADÍSTICAS
+        ======================================== */
 
         followersCount.textContent =
             followers.size;
@@ -391,6 +375,7 @@ zipInput.addEventListener("change", async (event) => {
         status.textContent =
             `✅ Análisis completado. ${notFollowingUsers.length} cuentas no te siguen.`;
 
+
     } catch (error) {
 
         console.error(error);
@@ -402,10 +387,16 @@ zipInput.addEventListener("change", async (event) => {
             "hidden"
         );
 
-        debugContent.innerHTML =
-            `<pre>${escapeHtml(
+        debugContent.innerHTML += `
+
+            <hr>
+
+            <pre>${escapeHtml(
+                error.stack ||
                 error.toString()
-            )}</pre>`;
+            )}</pre>
+
+        `;
 
     }
 
@@ -413,105 +404,60 @@ zipInput.addEventListener("change", async (event) => {
 
 
 /* ========================================
-   EXTRAER USUARIOS DE JSON
+   EXTRAER FOLLOWERS
 ======================================== */
 
-function extractUsernames(data) {
+function extractFollowers(data) {
 
     const usernames =
         new Set();
 
 
-    function walk(value) {
+    /*
+     * Formato habitual:
+     *
+     * [
+     *   {
+     *     "string_list_data": [
+     *       {
+     *         "value": "usuario"
+     *       }
+     *     ]
+     *   }
+     * ]
+     */
 
-        if (!value) {
-            return;
-        }
 
+    if (
+        Array.isArray(data)
+    ) {
 
-        /*
-        ARRAY
-        */
-
-        if (
-            Array.isArray(value)
+        for (
+            const entry of data
         ) {
 
-            value.forEach(item =>
-                walk(item)
+            extractFromEntry(
+                entry,
+                usernames
             );
 
-            return;
         }
 
-
-        /*
-        OBJETO
-        */
-
-        if (
-            typeof value === "object"
-        ) {
-
-
-            /*
-            FORMATO INSTAGRAM
-            */
-
-            if (
-                Array.isArray(
-                    value.string_list_data
-                )
-            ) {
-
-                value.string_list_data
-                    .forEach(item => {
-
-                        if (
-                            item &&
-                            typeof item.value === "string"
-                        ) {
-
-                            const username =
-                                item.value
-                                    .trim()
-                                    .toLowerCase();
-
-
-                            if (
-                                isValidUsername(
-                                    username
-                                )
-                            ) {
-
-                                usernames.add(
-                                    username
-                                );
-
-                            }
-
-                        }
-
-                    });
-
-            }
-
-
-            /*
-            CONTINUAR RECORRIENDO
-            */
-
-            Object.values(value)
-                .forEach(child =>
-                    walk(child)
-                );
-
-        }
+        return usernames;
 
     }
 
 
-    walk(data);
+    /*
+     * Por si Instagram cambia
+     * el formato.
+     */
+
+    extractRecursively(
+        data,
+        usernames
+    );
+
 
     return usernames;
 
@@ -519,29 +465,317 @@ function extractUsernames(data) {
 
 
 /* ========================================
-   VALIDAR USERNAME
+   EXTRAER FOLLOWING
 ======================================== */
 
-function isValidUsername(username) {
+function extractFollowing(data) {
 
-    if (!username) {
-        return false;
-    }
+    const usernames =
+        new Set();
+
+
+    /*
+     * FORMATO ACTUAL:
+     *
+     * {
+     *   "relationships_following": [
+     *
+     *      {
+     *        "title": "usuario",
+     *
+     *        "string_list_data": [
+     *          {
+     *            "value": "usuario"
+     *          }
+     *        ]
+     *      }
+     *
+     *   ]
+     * }
+     */
+
 
     if (
-        username.length > 40
+        data &&
+        Array.isArray(
+            data.relationships_following
+        )
     ) {
-        return false;
+
+        for (
+            const entry
+            of data.relationships_following
+        ) {
+
+            /*
+             * Primero intentamos title.
+             */
+
+            if (
+                typeof entry.title === "string"
+            ) {
+
+                const username =
+                    cleanUsername(
+                        entry.title
+                    );
+
+                if (username) {
+
+                    usernames.add(
+                        username
+                    );
+
+                }
+
+            }
+
+
+            /*
+             * También comprobamos
+             * string_list_data.
+             */
+
+            extractFromEntry(
+                entry,
+                usernames
+            );
+
+        }
+
+
+        return usernames;
+
     }
 
-    return /^[a-zA-Z0-9._]+$/
-        .test(username);
+
+    /*
+     * FORMATO ALTERNATIVO
+     */
+
+    extractRecursively(
+        data,
+        usernames
+    );
+
+
+    return usernames;
 
 }
 
 
 /* ========================================
-   RENDERIZAR LISTA
+   EXTRAER UNA ENTRADA
+======================================== */
+
+function extractFromEntry(
+    entry,
+    usernames
+) {
+
+    if (
+        !entry ||
+        typeof entry !== "object"
+    ) {
+
+        return;
+
+    }
+
+
+    /*
+     * string_list_data
+     */
+
+    if (
+        Array.isArray(
+            entry.string_list_data
+        )
+    ) {
+
+        for (
+            const item
+            of entry.string_list_data
+        ) {
+
+            if (
+                item &&
+                typeof item.value === "string"
+            ) {
+
+                const username =
+                    cleanUsername(
+                        item.value
+                    );
+
+                if (username) {
+
+                    usernames.add(
+                        username
+                    );
+
+                }
+
+            }
+
+        }
+
+    }
+
+
+    /*
+     * title
+     */
+
+    if (
+        typeof entry.title === "string"
+    ) {
+
+        const username =
+            cleanUsername(
+                entry.title
+            );
+
+        if (username) {
+
+            usernames.add(
+                username
+            );
+
+        }
+
+    }
+
+}
+
+
+/* ========================================
+   EXTRACCIÓN RECURSIVA
+======================================== */
+
+function extractRecursively(
+    data,
+    usernames
+) {
+
+    if (!data) return;
+
+
+    if (
+        Array.isArray(data)
+    ) {
+
+        data.forEach(item =>
+            extractRecursively(
+                item,
+                usernames
+            )
+        );
+
+        return;
+
+    }
+
+
+    if (
+        typeof data === "object"
+    ) {
+
+        extractFromEntry(
+            data,
+            usernames
+        );
+
+
+        Object.values(data)
+            .forEach(value =>
+                extractRecursively(
+                    value,
+                    usernames
+                )
+            );
+
+    }
+
+}
+
+
+/* ========================================
+   LIMPIAR USERNAME
+======================================== */
+
+function cleanUsername(value) {
+
+    if (!value) {
+        return null;
+    }
+
+
+    const username =
+        value
+            .trim()
+            .replace(/^@/, "")
+            .toLowerCase();
+
+
+    if (
+        !/^[a-zA-Z0-9._]+$/.test(
+            username
+        )
+    ) {
+
+        return null;
+
+    }
+
+
+    if (
+        username.length > 40
+    ) {
+
+        return null;
+
+    }
+
+
+    return username;
+
+}
+
+
+/* ========================================
+   NÚMERO DEL ARCHIVO
+======================================== */
+
+function getFileNumber(path) {
+
+    const name =
+        path
+            .split("/")
+            .pop();
+
+
+    const match =
+        name.match(
+            /followers_(\d+)\.json/i
+        );
+
+
+    if (!match) {
+        return 1;
+    }
+
+
+    return parseInt(
+        match[1],
+        10
+    );
+
+}
+
+
+/* ========================================
+   RENDERIZAR USUARIOS
 ======================================== */
 
 function renderUsers() {
@@ -556,10 +790,10 @@ function renderUsers() {
 
 
     const filtered =
-        notFollowingUsers.filter(
-            username =>
+        notFollowingUsers
+            .filter(username =>
                 username.includes(query)
-        );
+            );
 
 
     filtered.forEach(username => {
@@ -616,7 +850,7 @@ function renderUsers() {
 
 
 /* ========================================
-   BUSCAR
+   BUSCADOR
 ======================================== */
 
 search.addEventListener(
