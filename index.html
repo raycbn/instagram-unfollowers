@@ -1,13 +1,33 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#111111">
-  <meta name="description" content="Gestiona las cuentas de Instagram que no te siguen">
 
-  <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <meta
+    name="theme-color"
+    content="#111111"
+  >
+
+  <meta
+    name="description"
+    content="Gestiona tus seguidores y seguidos de Instagram"
+  >
+
+  <link
+    rel="manifest"
+    href="manifest.json"
+  >
+
+  <link
+    rel="stylesheet"
+    href="style.css?v=20260817"
+  >
 
   <title>Instagram Unfollowers</title>
 </head>
@@ -16,100 +36,177 @@
 
   <main class="app">
 
-    <header>
-      <h1>Instagram Unfollowers</h1>
-      <p>Gestiona las cuentas que no te siguen.</p>
+    <header class="header">
+
+      <div class="logo">
+        👤
+      </div>
+
+      <h1>
+        Instagram Unfollowers
+      </h1>
+
+      <p>
+        Descubre quién no te sigue de vuelta.
+      </p>
+
     </header>
 
 
-    <!-- CARGAR ZIP -->
-    <section class="upload-card">
+    <!-- SUBIR ZIP -->
 
-      <div class="icon">📦</div>
+    <section class="card">
 
-      <h2>Carga tus datos de Instagram</h2>
+      <div class="big-icon">
+        📦
+      </div>
 
-      <p>
-        Selecciona el ZIP descargado desde Instagram.
-        Todo el análisis se realiza en tu dispositivo.
+      <h2>
+        Cargar datos de Instagram
+      </h2>
+
+      <p class="description">
+        Selecciona el ZIP que descargaste
+        desde Instagram.
       </p>
 
       <label class="upload-button">
+
         📂 Seleccionar ZIP
+
         <input
           id="zipInput"
           type="file"
           accept=".zip,application/zip"
         >
+
       </label>
 
-      <div id="status"></div>
+      <div
+        id="status"
+        class="status"
+      >
+      </div>
 
     </section>
 
 
     <!-- ESTADÍSTICAS -->
-    <section id="stats" class="stats hidden">
 
-      <div class="stat">
-        <strong id="followersCount">0</strong>
-        <span>Seguidores</span>
+    <section
+      id="stats"
+      class="stats hidden"
+    >
+
+      <div class="stat-card">
+
+        <strong id="followersCount">
+          0
+        </strong>
+
+        <span>
+          Seguidores
+        </span>
+
       </div>
 
-      <div class="stat">
-        <strong id="followingCount">0</strong>
-        <span>Siguiendo</span>
+
+      <div class="stat-card">
+
+        <strong id="followingCount">
+          0
+        </strong>
+
+        <span>
+          Siguiendo
+        </span>
+
       </div>
 
-      <div class="stat danger">
-        <strong id="notFollowingCount">0</strong>
-        <span>No te siguen</span>
+
+      <div class="stat-card danger">
+
+        <strong id="notFollowingCount">
+          0
+        </strong>
+
+        <span>
+          No te siguen
+        </span>
+
       </div>
 
     </section>
 
 
-    <!-- GESTOR DE LOTES -->
-    <section id="batchSection" class="batch-section hidden">
+    <!-- GESTOR -->
 
-      <div class="batch-header">
+    <section
+      id="manager"
+      class="card hidden"
+    >
+
+      <div class="manager-header">
 
         <div>
-          <h2>🚫 No te siguen</h2>
-          <p id="batchInfo">Lote 1</p>
+
+          <h2>
+            🚫 No te siguen
+          </h2>
+
+          <p id="batchInfo">
+            Lote 1
+          </p>
+
         </div>
 
-        <div class="batch-counter">
-          <strong id="batchNumber">1</strong>
-          <span>/ <span id="totalBatches">1</span></span>
+        <div class="batch-number">
+
+          <strong id="batchNumber">
+            1
+          </strong>
+
+          <span>
+            /
+            <span id="totalBatches">
+              1
+            </span>
+          </span>
+
         </div>
 
       </div>
 
 
-      <!-- PROGRESO DEL LOTE -->
+      <!-- PROGRESO -->
 
-      <div class="progress-container">
+      <div class="progress-area">
 
-        <div class="progress-bar">
+        <div class="progress-track">
+
           <div
             id="progressBar"
             class="progress-fill"
-            style="width: 0%"
-          ></div>
+          >
+          </div>
+
         </div>
 
-        <p id="progressText">
+        <div
+          id="progressText"
+          class="progress-text"
+        >
           0 / 100 procesados
-        </p>
+        </div>
 
       </div>
 
 
-      <!-- BUSCADOR -->
+      <!-- BUSCAR -->
 
       <input
         id="search"
+        class="search"
         type="search"
         placeholder="🔎 Buscar usuario..."
       >
@@ -119,12 +216,18 @@
 
       <div class="actions">
 
-        <button id="selectAll">
-          Seleccionar todos
+        <button
+          id="selectAll"
+          class="secondary-button"
+        >
+          Marcar lote completo
         </button>
 
-        <button id="clearAll">
-          Deseleccionar
+        <button
+          id="clearAll"
+          class="secondary-button"
+        >
+          Desmarcar lote
         </button>
 
       </div>
@@ -132,12 +235,16 @@
 
       <!-- LISTA -->
 
-      <div id="userList"></div>
+      <div
+        id="userList"
+        class="user-list"
+      >
+      </div>
 
 
       <!-- NAVEGACIÓN -->
 
-      <div class="batch-navigation">
+      <div class="navigation">
 
         <button
           id="previousBatch"
@@ -156,8 +263,6 @@
       </div>
 
 
-      <!-- RESET -->
-
       <button
         id="resetProgress"
         class="reset-button"
@@ -168,27 +273,82 @@
     </section>
 
 
-    <!-- DEBUG -->
+    <!-- DIAGNÓSTICO -->
 
-    <section id="debug" class="debug hidden">
+    <section
+      id="debug"
+      class="debug hidden"
+    >
 
-      <h3>🔧 Información del análisis</h3>
+      <h3>
+        🔧 Diagnóstico
+      </h3>
 
-      <div id="debugContent"></div>
+      <div id="debugContent">
+      </div>
 
     </section>
 
   </main>
 
 
-  <!-- JSZip -->
+  <!--
+    JSZip
+  -->
+
   <script
-    src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
+    src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
+  ></script>
+
+
+  <!--
+    IMPORTANTE:
+    versión nueva para evitar caché
+  -->
+
+  <script src="app.js?v=20260817"></script>
+
+
+  <!--
+    Elimina cualquier Service Worker antiguo
+    que haya quedado instalado.
+  -->
+
+  <script>
+
+    if ("serviceWorker" in navigator) {
+
+      navigator.serviceWorker
+        .getRegistrations()
+        .then(function(registrations) {
+
+          registrations.forEach(function(registration) {
+
+            registration.unregister();
+
+          });
+
+        });
+
+      if ("caches" in window) {
+
+        caches.keys()
+          .then(function(names) {
+
+            names.forEach(function(name) {
+
+              caches.delete(name);
+
+            });
+
+          });
+
+      }
+
+    }
+
   </script>
 
-
-  <!-- Nuestra aplicación -->
-  <script src="app.js?v=4"></script>
-
 </body>
+
 </html>
