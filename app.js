@@ -17,11 +17,9 @@ const clearAll = document.getElementById("clearAll");
 let notFollowingUsers = [];
 
 
-/*
-========================================
-CARGAR ZIP
-========================================
-*/
+/* ========================================
+   CARGAR ZIP
+======================================== */
 
 zipInput.addEventListener("change", async (event) => {
 
@@ -37,153 +35,187 @@ zipInput.addEventListener("change", async (event) => {
 
         const files = Object.keys(zip.files);
 
-        console.log("Archivos encontrados:", files);
+        console.log("Archivos del ZIP:", files);
 
-        const followersFiles = files.filter(file =>
-            /followers(_\d+)?\.(json|html)$/i.test(
-                file.split("/").pop()
-            )
-        );
 
-        const followingFiles = files.filter(file =>
-            /following\.(json|html)$/i.test(
-                file.split("/").pop()
-            )
-        );
+        /* ========================================
+           BUSCAR ARCHIVOS CORRECTAMENTE
+        ======================================== */
 
-        /*
-        Algunos ZIP de Instagram tienen carpetas.
-        Buscamos también por nombre.
-        */
+        const followersFiles = [];
+        const followingFiles = [];
 
-        const followerMatches = files.filter(file =>
-            file.toLowerCase().includes("followers")
-        );
+        for (const path of files) {
 
-        const followingMatches = files.filter(file =>
-            file.toLowerCase().includes("following")
-        );
+            const fileName = path
+                .split("/")
+                .pop()
+                .toLowerCase();
 
-        console.log("Followers:", followerMatches);
-        console.log("Following:", followingMatches);
+            /*
+             * FOLLOWERS
+             *
+             * Aceptamos:
+             * followers.json
+             * followers_1.json
+             * followers_2.json
+             * followers.html
+             * followers_1.html
+             */
 
-        if (
-            followerMatches.length === 0 ||
-            followingMatches.length === 0
-        ) {
+            if (
+                /^followers(_\d+)?\.(json|html)$/i.test(fileName)
+            ) {
+                followersFiles.push(path);
+            }
+
+
+            /*
+             * FOLLOWING
+             *
+             * Aceptamos:
+             * following.json
+             * following.html
+             */
+
+            if (
+                /^following\.(json|html)$/i.test(fileName)
+            ) {
+                followingFiles.push(path);
+            }
+
+        }
+
+
+        console.log("Archivos FOLLOWERS:", followersFiles);
+        console.log("Archivos FOLLOWING:", followingFiles);
+
+
+        if (followersFiles.length === 0) {
 
             status.textContent =
-                "❌ No encuentro los archivos de seguidores/seguidos.";
+                "❌ No encuentro los archivos de seguidores.";
 
             return;
         }
 
-        /*
-        ========================================
-        LEER FOLLOWERS
-        ========================================
-        */
+
+        if (followingFiles.length === 0) {
+
+            status.textContent =
+                "❌ No encuentro el archivo de seguidos.";
+
+            return;
+        }
+
+
+        /* ========================================
+           LEER FOLLOWERS
+        ======================================== */
 
         const followers = new Set();
 
-        for (const filename of followerMatches) {
+        for (const filename of followersFiles) {
 
             const file = zip.files[filename];
 
             if (!file || file.dir) continue;
 
-            const content = await file.async("string");
+            const content =
+                await file.async("string");
 
-            const usernames = extractUsernames(content);
+            const usernames =
+                extractUsernames(content);
 
-            usernames.forEach(username =>
-                followers.add(username)
-            );
+            usernames.forEach(username => {
+                followers.add(username);
+            });
+
         }
 
 
-        /*
-        ========================================
-        LEER FOLLOWING
-        ========================================
-        */
+        /* ========================================
+           LEER FOLLOWING
+        ======================================== */
 
         const following = new Set();
 
-        for (const filename of followingMatches) {
+        for (const filename of followingFiles) {
 
             const file = zip.files[filename];
 
             if (!file || file.dir) continue;
 
-            const content = await file.async("string");
+            const content =
+                await file.async("string");
 
-            const usernames = extractUsernames(content);
+            const usernames =
+                extractUsernames(content);
 
-            usernames.forEach(username =>
-                following.add(username)
-            );
+            usernames.forEach(username => {
+                following.add(username);
+            });
+
         }
 
 
-        /*
-        ========================================
-        COMPARACIÓN
-        ========================================
-        */
+        /* ========================================
+           COMPARAR
+        ======================================== */
 
         notFollowingUsers = [...following]
             .filter(username => !followers.has(username))
             .sort();
 
 
-        /*
-        ========================================
-        MOSTRAR RESULTADOS
-        ========================================
-        */
+        /* ========================================
+           MOSTRAR ESTADÍSTICAS
+        ======================================== */
 
-        followersCount.textContent = followers.size;
+        followersCount.textContent =
+            followers.size;
 
-        followingCount.textContent = following.size;
+        followingCount.textContent =
+            following.size;
 
         notFollowingCount.textContent =
             notFollowingUsers.length;
 
-        stats.classList.remove("hidden");
 
+        stats.classList.remove("hidden");
         results.classList.remove("hidden");
 
         renderUsers();
 
+
         status.textContent =
-            "✅ Análisis completado.";
+            `✅ Análisis completado. ${notFollowingUsers.length} cuentas no te siguen.`;
+
 
     } catch (error) {
 
         console.error(error);
 
         status.textContent =
-            "❌ Error leyendo el archivo.";
+            "❌ Error leyendo el archivo. Revisa la consola.";
 
     }
 
 });
 
 
-/*
-========================================
-EXTRAER USUARIOS
-========================================
-*/
+/* ========================================
+   EXTRAER USUARIOS
+======================================== */
 
 function extractUsernames(content) {
 
     const usernames = new Set();
 
-    /*
-    JSON
-    */
+
+    /* ========================================
+       JSON
+    ======================================== */
 
     try {
 
@@ -191,25 +223,41 @@ function extractUsernames(content) {
 
         extractFromJson(data, usernames);
 
-    } catch {
+        return usernames;
 
-        /*
-        HTML
-        */
+    } catch (error) {
 
-        const parser = new DOMParser();
+        // No era JSON.
+        // Probamos HTML.
 
-        const doc = parser.parseFromString(
-            content,
-            "text/html"
-        );
+    }
 
-        const links = doc.querySelectorAll("a");
+
+    /* ========================================
+       HTML
+    ======================================== */
+
+    try {
+
+        const parser =
+            new DOMParser();
+
+        const doc =
+            parser.parseFromString(
+                content,
+                "text/html"
+            );
+
+        const links =
+            doc.querySelectorAll("a");
+
 
         links.forEach(link => {
 
             const text =
-                link.textContent.trim().toLowerCase();
+                link.textContent
+                    .trim()
+                    .toLowerCase();
 
             if (isValidUsername(text)) {
 
@@ -219,101 +267,145 @@ function extractUsernames(content) {
 
         });
 
+    } catch (error) {
+
+        console.error(
+            "Error leyendo HTML:",
+            error
+        );
+
     }
 
+
     return usernames;
+
 }
 
 
-/*
-========================================
-RECORRER JSON
-========================================
-*/
+/* ========================================
+   RECORRER JSON
+======================================== */
 
-function extractFromJson(data, usernames) {
+function extractFromJson(
+    data,
+    usernames
+) {
 
     if (!data) return;
 
 
     if (Array.isArray(data)) {
 
-        data.forEach(item =>
-            extractFromJson(item, usernames)
-        );
+        data.forEach(item => {
+
+            extractFromJson(
+                item,
+                usernames
+            );
+
+        });
 
         return;
     }
 
 
-    if (typeof data === "object") {
+    if (
+        typeof data === "object"
+    ) {
+
 
         /*
-        Formato habitual de Instagram
-        */
+         * Formato habitual de Instagram:
+         *
+         * {
+         *   "string_list_data": [
+         *      {
+         *        "value": "usuario"
+         *      }
+         *   ]
+         * }
+         */
 
-        if (Array.isArray(data.string_list_data)) {
+        if (
+            Array.isArray(
+                data.string_list_data
+            )
+        ) {
 
-            data.string_list_data.forEach(item => {
+            data.string_list_data
+                .forEach(item => {
 
-                if (
-                    item &&
-                    typeof item.value === "string"
-                ) {
+                    if (
+                        item &&
+                        typeof item.value === "string"
+                    ) {
 
-                    const username =
-                        item.value
-                            .trim()
-                            .toLowerCase();
+                        const username =
+                            item.value
+                                .trim()
+                                .toLowerCase();
 
-                    if (isValidUsername(username)) {
+                        if (
+                            isValidUsername(
+                                username
+                            )
+                        ) {
 
-                        usernames.add(username);
+                            usernames.add(
+                                username
+                            );
+
+                        }
 
                     }
 
-                }
-
-            });
+                });
 
         }
 
 
         /*
-        Seguir buscando dentro del objeto
-        */
+         * Continuar recorriendo
+         * todos los objetos.
+         */
 
-        Object.values(data).forEach(value =>
-            extractFromJson(value, usernames)
-        );
+        Object.values(data)
+            .forEach(value => {
+
+                extractFromJson(
+                    value,
+                    usernames
+                );
+
+            });
 
     }
 
 }
 
 
-/*
-========================================
-VALIDAR USERNAME
-========================================
-*/
+/* ========================================
+   VALIDAR USERNAME
+======================================== */
 
 function isValidUsername(username) {
 
     if (!username) return false;
 
-    if (username.length > 40) return false;
+    if (username.length > 40) {
+        return false;
+    }
 
-    return /^[a-zA-Z0-9._]+$/.test(username);
+    return /^[a-zA-Z0-9._]+$/.test(
+        username
+    );
 
 }
 
 
-/*
-========================================
-MOSTRAR USUARIOS
-========================================
-*/
+/* ========================================
+   MOSTRAR USUARIOS
+======================================== */
 
 function renderUsers() {
 
@@ -324,41 +416,67 @@ function renderUsers() {
 
     userList.innerHTML = "";
 
+
     const filtered =
-        notFollowingUsers.filter(username =>
-            username.includes(query)
+        notFollowingUsers.filter(
+            username =>
+                username.includes(query)
         );
 
 
     filtered.forEach(username => {
 
         const row =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
 
         row.className = "user";
 
-        row.innerHTML = `
-            <input
-                type="checkbox"
-                class="userCheckbox"
-                value="${escapeHtml(username)}"
-            >
 
-            <span>@${escapeHtml(username)}</span>
-        `;
+        const checkbox =
+            document.createElement(
+                "input"
+            );
 
-        userList.appendChild(row);
+        checkbox.type = "checkbox";
+
+        checkbox.className =
+            "userCheckbox";
+
+        checkbox.value =
+            username;
+
+
+        const span =
+            document.createElement(
+                "span"
+            );
+
+        span.textContent =
+            "@" + username;
+
+
+        row.appendChild(
+            checkbox
+        );
+
+        row.appendChild(
+            span
+        );
+
+        userList.appendChild(
+            row
+        );
 
     });
 
 }
 
 
-/*
-========================================
-BUSCADOR
-========================================
-*/
+/* ========================================
+   BUSCADOR
+======================================== */
 
 search.addEventListener(
     "input",
@@ -366,18 +484,18 @@ search.addEventListener(
 );
 
 
-/*
-========================================
-SELECCIONAR TODOS
-========================================
-*/
+/* ========================================
+   SELECCIONAR TODOS
+======================================== */
 
 selectAll.addEventListener(
     "click",
     () => {
 
         document
-            .querySelectorAll(".userCheckbox")
+            .querySelectorAll(
+                ".userCheckbox"
+            )
             .forEach(checkbox => {
 
                 checkbox.checked = true;
@@ -388,18 +506,18 @@ selectAll.addEventListener(
 );
 
 
-/*
-========================================
-DESELECCIONAR
-========================================
-*/
+/* ========================================
+   DESELECCIONAR
+======================================== */
 
 clearAll.addEventListener(
     "click",
     () => {
 
         document
-            .querySelectorAll(".userCheckbox")
+            .querySelectorAll(
+                ".userCheckbox"
+            )
             .forEach(checkbox => {
 
                 checkbox.checked = false;
@@ -410,29 +528,9 @@ clearAll.addEventListener(
 );
 
 
-/*
-========================================
-SEGURIDAD HTML
-========================================
-*/
-
-function escapeHtml(text) {
-
-    return text
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-
-}
-
-
-/*
-========================================
-SERVICE WORKER
-========================================
-*/
+/* ========================================
+   SERVICE WORKER
+======================================== */
 
 if ("serviceWorker" in navigator) {
 
@@ -441,13 +539,17 @@ if ("serviceWorker" in navigator) {
         () => {
 
             navigator.serviceWorker
-                .register("service-worker.js")
-                .catch(error =>
+                .register(
+                    "service-worker.js"
+                )
+                .catch(error => {
+
                     console.log(
                         "Service Worker:",
                         error
-                    )
-                );
+                    );
+
+                });
 
         }
     );
