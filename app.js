@@ -14,6 +14,9 @@ const search = document.getElementById("search");
 const selectAll = document.getElementById("selectAll");
 const clearAll = document.getElementById("clearAll");
 
+const debug = document.getElementById("debug");
+const debugContent = document.getElementById("debugContent");
+
 let notFollowingUsers = [];
 
 
@@ -29,148 +32,339 @@ zipInput.addEventListener("change", async (event) => {
 
     try {
 
-        status.textContent = "⏳ Analizando tu archivo de Instagram...";
+        status.textContent =
+            "⏳ Abriendo ZIP de Instagram...";
 
-        const zip = await JSZip.loadAsync(file);
+        const zip =
+            await JSZip.loadAsync(file);
 
-        const files = Object.keys(zip.files);
+        const allFiles =
+            Object.keys(zip.files);
 
-        console.log("Archivos del ZIP:", files);
+        console.log(
+            "ARCHIVOS DEL ZIP:",
+            allFiles
+        );
 
 
-        /* ========================================
-           BUSCAR ARCHIVOS CORRECTAMENTE
-        ======================================== */
+        /*
+        ========================================
+        BUSCAR ARCHIVOS DE RELACIONES
+        ========================================
+        */
 
-        const followersFiles = [];
-        const followingFiles = [];
+        const jsonFiles =
+            allFiles.filter(path =>
+                path.toLowerCase().endsWith(".json")
+            );
 
-        for (const path of files) {
 
-            const fileName = path
-                .split("/")
-                .pop()
-                .toLowerCase();
+        const relationshipFiles = [];
 
-            /*
-             * FOLLOWERS
-             *
-             * Aceptamos:
-             * followers.json
-             * followers_1.json
-             * followers_2.json
-             * followers.html
-             * followers_1.html
-             */
 
-            if (
-                /^followers(_\d+)?\.(json|html)$/i.test(fileName)
-            ) {
-                followersFiles.push(path);
-            }
+        for (const path of jsonFiles) {
+
+            const name =
+                path.split("/").pop().toLowerCase();
 
 
             /*
-             * FOLLOWING
-             *
-             * Aceptamos:
-             * following.json
-             * following.html
-             */
+            Solo examinamos archivos que
+            tengan alguna relación con
+            followers/following/connections.
+            */
 
             if (
-                /^following\.(json|html)$/i.test(fileName)
+                name.includes("follow") ||
+                name.includes("relationship")
             ) {
-                followingFiles.push(path);
+
+                relationshipFiles.push(path);
+
             }
 
         }
 
 
-        console.log("Archivos FOLLOWERS:", followersFiles);
-        console.log("Archivos FOLLOWING:", followingFiles);
+        /*
+        ========================================
+        MOSTRAR DEBUG
+        ========================================
+        */
+
+        debug.classList.remove("hidden");
+
+        debugContent.innerHTML = `
+            <p><strong>JSON encontrados:</strong> ${jsonFiles.length}</p>
+            <p><strong>Archivos relacionados:</strong> ${relationshipFiles.length}</p>
+            <details>
+                <summary>Ver archivos detectados</summary>
+                <pre>${escapeHtml(
+                    relationshipFiles.join("\n")
+                )}</pre>
+            </details>
+        `;
 
 
-        if (followersFiles.length === 0) {
+        /*
+        ========================================
+        BUSCAR FOLLOWERS Y FOLLOWING
+        POR EL CONTENIDO REAL
+        ========================================
+        */
+
+        let followers = new Set();
+        let following = new Set();
+
+        let followersDetected = [];
+        let followingDetected = [];
+
+
+        for (
+            const path of relationshipFiles
+        ) {
+
+            const zipFile =
+                zip.files[path];
+
+            if (
+                !zipFile ||
+                zipFile.dir
+            ) {
+                continue;
+            }
+
+
+            let content;
+
+            try {
+
+                content =
+                    await zipFile.async("string");
+
+            } catch {
+
+                continue;
+
+            }
+
+
+            let data;
+
+            try {
+
+                data =
+                    JSON.parse(content);
+
+            } catch {
+
+                continue;
+
+            }
+
+
+            /*
+            Convertimos todo el JSON
+            en un texto para detectar
+            la clave real.
+            */
+
+            const jsonText =
+                JSON.stringify(data)
+                    .toLowerCase();
+
+
+            /*
+            ========================================
+            FOLLOWERS
+            ========================================
+            */
+
+            if (
+                jsonText.includes(
+                    "relationships_followers"
+                )
+            ) {
+
+                const users =
+                    extractUsernames(data);
+
+                users.forEach(user =>
+                    followers.add(user)
+                );
+
+                followersDetected.push(
+                    path
+                );
+
+                continue;
+            }
+
+
+            /*
+            ========================================
+            FOLLOWING
+            ========================================
+            */
+
+            if (
+                jsonText.includes(
+                    "relationships_following"
+                )
+            ) {
+
+                const users =
+                    extractUsernames(data);
+
+                users.forEach(user =>
+                    following.add(user)
+                );
+
+                followingDetected.push(
+                    path
+                );
+
+                continue;
+            }
+
+
+            /*
+            ========================================
+            FORMATO ALTERNATIVO
+            ========================================
+            */
+
+            const fileName =
+                path
+                    .split("/")
+                    .pop()
+                    .toLowerCase();
+
+
+            if (
+                fileName.startsWith("followers")
+            ) {
+
+                const users =
+                    extractUsernames(data);
+
+                users.forEach(user =>
+                    followers.add(user)
+                );
+
+                followersDetected.push(
+                    path
+                );
+
+            }
+
+
+            if (
+                fileName.startsWith("following")
+            ) {
+
+                const users =
+                    extractUsernames(data);
+
+                users.forEach(user =>
+                    following.add(user)
+                );
+
+                followingDetected.push(
+                    path
+                );
+
+            }
+
+        }
+
+
+        /*
+        ========================================
+        ACTUALIZAR DEBUG
+        ========================================
+        */
+
+        debugContent.innerHTML += `
+
+            <hr>
+
+            <p>
+                <strong>Followers detectados:</strong>
+                ${followersDetected.length}
+            </p>
+
+            <p>
+                <strong>Following detectados:</strong>
+                ${followingDetected.length}
+            </p>
+
+            <details>
+                <summary>Archivos de followers</summary>
+                <pre>${escapeHtml(
+                    followersDetected.join("\n")
+                )}</pre>
+            </details>
+
+            <details>
+                <summary>Archivos de following</summary>
+                <pre>${escapeHtml(
+                    followingDetected.join("\n")
+                )}</pre>
+            </details>
+        `;
+
+
+        /*
+        ========================================
+        COMPROBAR
+        ========================================
+        */
+
+        if (
+            followers.size === 0
+        ) {
 
             status.textContent =
-                "❌ No encuentro los archivos de seguidores.";
+                "❌ No hemos podido encontrar tus seguidores.";
 
             return;
+
         }
 
 
-        if (followingFiles.length === 0) {
+        if (
+            following.size === 0
+        ) {
 
             status.textContent =
-                "❌ No encuentro el archivo de seguidos.";
+                "❌ Hemos encontrado seguidores, pero no la lista de cuentas que sigues. Mira la sección de diagnóstico.";
 
             return;
-        }
-
-
-        /* ========================================
-           LEER FOLLOWERS
-        ======================================== */
-
-        const followers = new Set();
-
-        for (const filename of followersFiles) {
-
-            const file = zip.files[filename];
-
-            if (!file || file.dir) continue;
-
-            const content =
-                await file.async("string");
-
-            const usernames =
-                extractUsernames(content);
-
-            usernames.forEach(username => {
-                followers.add(username);
-            });
 
         }
 
 
-        /* ========================================
-           LEER FOLLOWING
-        ======================================== */
+        /*
+        ========================================
+        COMPARACIÓN
+        ========================================
+        */
 
-        const following = new Set();
-
-        for (const filename of followingFiles) {
-
-            const file = zip.files[filename];
-
-            if (!file || file.dir) continue;
-
-            const content =
-                await file.async("string");
-
-            const usernames =
-                extractUsernames(content);
-
-            usernames.forEach(username => {
-                following.add(username);
-            });
-
-        }
+        notFollowingUsers =
+            [...following]
+                .filter(
+                    username =>
+                        !followers.has(username)
+                )
+                .sort();
 
 
-        /* ========================================
-           COMPARAR
-        ======================================== */
-
-        notFollowingUsers = [...following]
-            .filter(username => !followers.has(username))
-            .sort();
-
-
-        /* ========================================
-           MOSTRAR ESTADÍSTICAS
-        ======================================== */
+        /*
+        ========================================
+        ESTADÍSTICAS
+        ========================================
+        */
 
         followersCount.textContent =
             followers.size;
@@ -182,8 +376,14 @@ zipInput.addEventListener("change", async (event) => {
             notFollowingUsers.length;
 
 
-        stats.classList.remove("hidden");
-        results.classList.remove("hidden");
+        stats.classList.remove(
+            "hidden"
+        );
+
+        results.classList.remove(
+            "hidden"
+        );
+
 
         renderUsers();
 
@@ -191,13 +391,21 @@ zipInput.addEventListener("change", async (event) => {
         status.textContent =
             `✅ Análisis completado. ${notFollowingUsers.length} cuentas no te siguen.`;
 
-
     } catch (error) {
 
         console.error(error);
 
         status.textContent =
-            "❌ Error leyendo el archivo. Revisa la consola.";
+            "❌ Error analizando el ZIP.";
+
+        debug.classList.remove(
+            "hidden"
+        );
+
+        debugContent.innerHTML =
+            `<pre>${escapeHtml(
+                error.toString()
+            )}</pre>`;
 
     }
 
@@ -205,181 +413,107 @@ zipInput.addEventListener("change", async (event) => {
 
 
 /* ========================================
-   EXTRAER USUARIOS
+   EXTRAER USUARIOS DE JSON
 ======================================== */
 
-function extractUsernames(content) {
+function extractUsernames(data) {
 
-    const usernames = new Set();
-
-
-    /* ========================================
-       JSON
-    ======================================== */
-
-    try {
-
-        const data = JSON.parse(content);
-
-        extractFromJson(data, usernames);
-
-        return usernames;
-
-    } catch (error) {
-
-        // No era JSON.
-        // Probamos HTML.
-
-    }
+    const usernames =
+        new Set();
 
 
-    /* ========================================
-       HTML
-    ======================================== */
+    function walk(value) {
 
-    try {
-
-        const parser =
-            new DOMParser();
-
-        const doc =
-            parser.parseFromString(
-                content,
-                "text/html"
-            );
-
-        const links =
-            doc.querySelectorAll("a");
-
-
-        links.forEach(link => {
-
-            const text =
-                link.textContent
-                    .trim()
-                    .toLowerCase();
-
-            if (isValidUsername(text)) {
-
-                usernames.add(text);
-
-            }
-
-        });
-
-    } catch (error) {
-
-        console.error(
-            "Error leyendo HTML:",
-            error
-        );
-
-    }
-
-
-    return usernames;
-
-}
-
-
-/* ========================================
-   RECORRER JSON
-======================================== */
-
-function extractFromJson(
-    data,
-    usernames
-) {
-
-    if (!data) return;
-
-
-    if (Array.isArray(data)) {
-
-        data.forEach(item => {
-
-            extractFromJson(
-                item,
-                usernames
-            );
-
-        });
-
-        return;
-    }
-
-
-    if (
-        typeof data === "object"
-    ) {
-
-
-        /*
-         * Formato habitual de Instagram:
-         *
-         * {
-         *   "string_list_data": [
-         *      {
-         *        "value": "usuario"
-         *      }
-         *   ]
-         * }
-         */
-
-        if (
-            Array.isArray(
-                data.string_list_data
-            )
-        ) {
-
-            data.string_list_data
-                .forEach(item => {
-
-                    if (
-                        item &&
-                        typeof item.value === "string"
-                    ) {
-
-                        const username =
-                            item.value
-                                .trim()
-                                .toLowerCase();
-
-                        if (
-                            isValidUsername(
-                                username
-                            )
-                        ) {
-
-                            usernames.add(
-                                username
-                            );
-
-                        }
-
-                    }
-
-                });
-
+        if (!value) {
+            return;
         }
 
 
         /*
-         * Continuar recorriendo
-         * todos los objetos.
-         */
+        ARRAY
+        */
 
-        Object.values(data)
-            .forEach(value => {
+        if (
+            Array.isArray(value)
+        ) {
 
-                extractFromJson(
-                    value,
-                    usernames
+            value.forEach(item =>
+                walk(item)
+            );
+
+            return;
+        }
+
+
+        /*
+        OBJETO
+        */
+
+        if (
+            typeof value === "object"
+        ) {
+
+
+            /*
+            FORMATO INSTAGRAM
+            */
+
+            if (
+                Array.isArray(
+                    value.string_list_data
+                )
+            ) {
+
+                value.string_list_data
+                    .forEach(item => {
+
+                        if (
+                            item &&
+                            typeof item.value === "string"
+                        ) {
+
+                            const username =
+                                item.value
+                                    .trim()
+                                    .toLowerCase();
+
+
+                            if (
+                                isValidUsername(
+                                    username
+                                )
+                            ) {
+
+                                usernames.add(
+                                    username
+                                );
+
+                            }
+
+                        }
+
+                    });
+
+            }
+
+
+            /*
+            CONTINUAR RECORRIENDO
+            */
+
+            Object.values(value)
+                .forEach(child =>
+                    walk(child)
                 );
 
-            });
+        }
 
     }
+
+
+    walk(data);
+
+    return usernames;
 
 }
 
@@ -390,21 +524,24 @@ function extractFromJson(
 
 function isValidUsername(username) {
 
-    if (!username) return false;
-
-    if (username.length > 40) {
+    if (!username) {
         return false;
     }
 
-    return /^[a-zA-Z0-9._]+$/.test(
-        username
-    );
+    if (
+        username.length > 40
+    ) {
+        return false;
+    }
+
+    return /^[a-zA-Z0-9._]+$/
+        .test(username);
 
 }
 
 
 /* ========================================
-   MOSTRAR USUARIOS
+   RENDERIZAR LISTA
 ======================================== */
 
 function renderUsers() {
@@ -413,6 +550,7 @@ function renderUsers() {
         search.value
             .trim()
             .toLowerCase();
+
 
     userList.innerHTML = "";
 
@@ -431,7 +569,8 @@ function renderUsers() {
                 "div"
             );
 
-        row.className = "user";
+        row.className =
+            "user";
 
 
         const checkbox =
@@ -439,7 +578,8 @@ function renderUsers() {
                 "input"
             );
 
-        checkbox.type = "checkbox";
+        checkbox.type =
+            "checkbox";
 
         checkbox.className =
             "userCheckbox";
@@ -465,6 +605,7 @@ function renderUsers() {
             span
         );
 
+
         userList.appendChild(
             row
         );
@@ -475,7 +616,7 @@ function renderUsers() {
 
 
 /* ========================================
-   BUSCADOR
+   BUSCAR
 ======================================== */
 
 search.addEventListener(
@@ -496,11 +637,10 @@ selectAll.addEventListener(
             .querySelectorAll(
                 ".userCheckbox"
             )
-            .forEach(checkbox => {
-
-                checkbox.checked = true;
-
-            });
+            .forEach(
+                checkbox =>
+                    checkbox.checked = true
+            );
 
     }
 );
@@ -518,38 +658,69 @@ clearAll.addEventListener(
             .querySelectorAll(
                 ".userCheckbox"
             )
-            .forEach(checkbox => {
-
-                checkbox.checked = false;
-
-            });
+            .forEach(
+                checkbox =>
+                    checkbox.checked = false
+            );
 
     }
 );
 
 
 /* ========================================
+   ESCAPAR HTML
+======================================== */
+
+function escapeHtml(text) {
+
+    return String(text)
+        .replaceAll(
+            "&",
+            "&amp;"
+        )
+        .replaceAll(
+            "<",
+            "&lt;"
+        )
+        .replaceAll(
+            ">",
+            "&gt;"
+        )
+        .replaceAll(
+            '"',
+            "&quot;"
+        )
+        .replaceAll(
+            "'",
+            "&#039;"
+        );
+
+}
+
+
+/* ========================================
    SERVICE WORKER
 ======================================== */
 
-if ("serviceWorker" in navigator) {
+if (
+    "serviceWorker" in navigator
+) {
 
     window.addEventListener(
         "load",
         () => {
 
-            navigator.serviceWorker
+            navigator
+                .serviceWorker
                 .register(
                     "service-worker.js"
                 )
-                .catch(error => {
-
+                .catch(error =>
                     console.log(
                         "Service Worker:",
                         error
-                    );
-
-                });
+                    )
+                );
 
         }
     );
